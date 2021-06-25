@@ -1,54 +1,40 @@
-use solana_program::{
-    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
-};
+// inside lib.rs, only the following line should be in here
+pub mod entrypoint;
+pub mod instruction;
+pub mod error;
+pub mod processor;
+pub mod state;
 
-entrypoint!(process_instruction);
-fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    msg!(
-        "process_instruction: {}: {} accounts, data={:?}",
-        program_id,
-        accounts.len(),
-        instruction_data
-    );
-    Ok(())
-}
 
-#[cfg(test)]
-mod test {
-    use {
-        super::*,
-        assert_matches::*,
-        solana_program::instruction::{AccountMeta, Instruction},
-        solana_program_test::*,
-        solana_sdk::{signature::Signer, transaction::Transaction},
-    };
 
-    #[tokio::test]
-    async fn test_transaction() {
-        let program_id = Pubkey::new_unique();
+/*
+.
+├─ src
+│  ├─ lib.rs -> registering modules
+│  ├─ entrypoint.rs -> entrypoint to the program
+│  ├─ instruction.rs -> program API, (de)serializing instruction data
+│  ├─ processor.rs -> program logic
+│  ├─ state.rs -> program objects, (de)serializing state
+│  ├─ error.rs -> program specific errors
+├─ .gitignore
+├─ Cargo.lock
+├─ Cargo.toml
+├─ Xargo.toml
 
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "bpf_program_template",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
 
-        let mut transaction = Transaction::new_with_payer(
-            &[Instruction {
-                program_id,
-                accounts: vec![AccountMeta::new(payer.pubkey(), false)],
-                data: vec![1, 2, 3],
-            }],
-            Some(&payer.pubkey()),
-        );
-        transaction.sign(&[&payer], recent_blockhash);
+The flow of a program using this structure looks like this:
 
-        assert_matches!(banks_client.process_transaction(transaction).await, Ok(()));
-    }
-}
+Someone calls the entrypoint
+The entrypoint forwards the arguments to the processor
+The processor asks instruction.rs to decode the instruction_data argument from the entrypoint function.
+Using the decoded data, the processor will now decide which processing function to use to process the request.
+The processor may use state.rs to encode state into or decode the state of an account which has been passed into the entrypoint.
+As you can see,
+
+instruction.rs defines the "API" of a program
+
+While there is only one entrypoint, program execution
+ can follow different paths depending on the given instruction data that is decoded inside instruction.
+
+
+ */
